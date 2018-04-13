@@ -1,0 +1,3 @@
+/home/andrew/Development/cSfM/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/andrew/Development/cSfM/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/andrew/Development/cSfM/cmake-build-debug/CMakeFiles/cSfM.dir
