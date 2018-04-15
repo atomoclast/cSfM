@@ -1,12 +1,27 @@
-#include <iostream>
 #include "cSfM.h"
-#include "opencv2/videoio.hpp"
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
+
+//#include <iostream>
+//#include <opencv2/core/core.hpp>
+//#include <opencv2/highgui/highgui.hpp>
+//#include <opencv2/sfm.hpp>
+//#include <opencv2/viz.hpp>
+//#include <opencv2/calib3d.hpp>
+//#include <opencv2/core.hpp>
+//#include <fstream>
+//
+//using namespace std;
+//using namespace cv;
+//using namespace cv::sfm;
+
+#include <opencv2/viz.hpp>
+#include <opencv2/calib3d.hpp>
+#include <opencv2/core.hpp>
+
+#include <iostream>
 #include <fstream>
 
-using namespace cv;
 using namespace std;
+using namespace cv;
 
 static void help() {
     cout
@@ -38,7 +53,7 @@ static int getdir(const string _filename, vector<String> &files)
 
 int main(int argc, char** argv ) {
 
-    if(argc!=2)
+    if(argc!=5)
     {
         help();
         exit(0);
@@ -46,43 +61,37 @@ int main(int argc, char** argv ) {
     }
 
     // Open the Image Paths
+    SFM_Tracker tracker;
+
     vector<String> images_paths;
     vector<Mat> images;
+
     getdir( argv[1], images_paths );
+
+    // Build intrinsics
+    float f  = atof(argv[2]),
+            cx = atof(argv[3]), cy = atof(argv[4]);
+
+    Matx33d K = Matx33d( f, 0, cx,
+                         0, f, cy,
+                         0, 0,  1);
 
     cout <<"Opening Images..."<<endl;
 
     for(int i = 0; i<images_paths.size(); i++)
     {
-        images.push_back(imread(images_paths[i], IMREAD_GRAYSCALE));
+        images.push_back(imread(images_paths[i], IMREAD_COLOR));
     }
 
     cout <<"Opened Images..."<<endl;
 
-//    imshow("Opened first image:", images[0]);
-//    waitKey(0);
+    cout << "Finding Matches..."<<endl;
+    findMatches(images, tracker);
+    cout << "Found Matches..."<<endl;
 
 
-    for(int i = 0; i < images.size()-1; i++) {
 
-        cout <<"\n\n>>>Matching images " << i << " and " << i+1 << endl;
 
-        vector<DMatch> valid_matches;
-        vector<KeyPoint> keypoints_1, keypoints_2;
-
-        cout << "Finding Keypoints..." << endl;
-        findKeypoints(images[i], keypoints_1, images[i+1], keypoints_2, valid_matches);
-
-        Mat img_matches;
-        drawMatches(images[i], keypoints_1, images[i+1], keypoints_2, valid_matches, img_matches);
-
-        for (int i = 0; i < (int) valid_matches.size(); i++) {
-            printf("-- Good Match [%d] Keypoint 1: %d  -- Keypoint 2: %d  \n", i, valid_matches[i].queryIdx,
-                   valid_matches[i].trainIdx);
-        }
-        imshow("good matches", img_matches);
-        waitKey(0);
-    }
 
 
 
