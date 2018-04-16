@@ -26,12 +26,16 @@ using namespace cv;
 static void help() {
     cout
             << "\n------------------------------------------------------------------------------------\n"
-            << " This program generates 3D pointclouds generated from images sets. \n"
+            << " This program leverages the multiview reconstruction capabilities utilizing \n"
+            << " GT SAM.\n"
             << " It reconstruct a scene from a set of 2D images \n"
             << " Usage:\n"
-            << "        cSfM <path_to_file>\n"
+            << "         cSfM <path_to_file> <f> <cx> <cy>\n"
             << " where: path_to_file is the file absolute path into your system which contains\n"
             << "        the list of images to use for reconstruction. \n"
+            << "        f  is the focal lenght in pixels. \n"
+            << "        cx is the image principal point x coordinates in pixels. \n"
+            << "        cy is the image principal point y coordinates in pixels. \n"
             << "------------------------------------------------------------------------------------\n\n"
             << endl;
 }
@@ -69,12 +73,14 @@ int main(int argc, char** argv ) {
     getdir( argv[1], images_paths );
 
     // Build intrinsics
-    float f  = atof(argv[2]),
+    double f  = atof(argv[2]),
             cx = atof(argv[3]), cy = atof(argv[4]);
 
-    Matx33d K = Matx33d( f, 0, cx,
-                         0, f, cy,
-                         0, 0,  1);
+    Mat K = Mat::eye(3, 3, CV_64F);
+    K.at<double>(0,0) = f;
+    K.at<double>(1,1) = f;
+    K.at<double>(0,2) = cx;
+    K.at<double>(1,2) = cy;
 
     cout <<"Opening Images..."<<endl;
 
@@ -89,9 +95,11 @@ int main(int argc, char** argv ) {
     findMatches(images, tracker);
     cout << "Found Matches..."<<endl;
 
+//    imshow("Test?", tracker.vImgPose[0].img);
+//    waitKey(0);
 
-
-
+    // Triangulate Points in space.
+    triangulateSFMPoints(tracker, K);
 
 
 

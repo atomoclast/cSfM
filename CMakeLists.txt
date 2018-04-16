@@ -9,14 +9,14 @@ find_package(GTSAMCMakeTools)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_definitions("-DCERES_FOUND=1")
-list(APPEND LIBMV_LIGHT_LIBS simple_pipeline)
-list(APPEND LIBMV_LIGHT_INCLUDES "${CERES_INCLUDE_DIR}")
-
-list (FIND CERES_COMPILED_COMPONENTS "C++11" _index)
-if (${_index} GREATER -1)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-endif()
+#add_definitions("-DCERES_FOUND=1")
+#list(APPEND LIBMV_LIGHT_LIBS simple_pipeline)
+#list(APPEND LIBMV_LIGHT_INCLUDES "${CERES_INCLUDE_DIR}")
+#
+#list (FIND CERES_COMPILED_COMPONENTS "C++11" _index)
+#if (${_index} GREATER -1)
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+#endif()
 
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${GTSAM_INCLUDE_DIR})
