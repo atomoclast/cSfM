@@ -105,9 +105,64 @@ int main(int argc, char** argv ) {
 //    double cx = kMat.at<double>(0,2);
 //    double cy = kMat.at<double>(1,2);
 
-    gtsam::Values resultant;
+    gtsam::Values result;
     gtsam::Cal3_S2 K(f, f, 0, cx, cy); //Skew matrix
-    bundleAdjustment(tracker, K,resultant);
+    bundleAdjustment(tracker, K,result);
+
+//    generateOutputs(tracker, K, result, images_paths);
+
+    {
+        using namespace gtsam;
+
+        Matrix3 K_refined = result.at<Cal3_S2>(Symbol('K', 0)).K();
+        cout << "Resultant Camera Matrix K: " << endl << K_refined << endl;
+
+        system("mkdir -p output/visualize");
+        system("mkdir -p output/txt");
+        system("mkdir -p output/models");
+
+        ofstream option("output/options.txt");
+
+        // Should be size()-1? Or just size()????
+        option << "timages -1 " << 0 << " " << (tracker.vImgPose.size()) << endl;
+        option << "oimages 0" << endl;
+        option << "level 1" << endl;
+
+        option.close();
+
+        for (size_t i = 0; i < tracker.vImgPose.size(); i++) {
+            Eigen::Matrix<double, 3, 3> R;
+            Eigen::Matrix<double, 3, 1> t;
+            Eigen::Matrix<double, 3, 4> P;
+            char str[256];
+
+            R = result.at<Pose3>(Symbol('x', i)).rotation().matrix();
+            t = result.at<Pose3>(Symbol('x', i)).translation().vector();
+
+            P.block(0, 0, 3, 3) = R.transpose();
+            P.col(3) = -R.transpose() * t;
+            P = K_refined * P;
+
+            cout <<"Copying image."<<endl;
+
+            sprintf(str, "cp -f %s output/visualize/%04d.jpg", images_paths[i].c_str(), (int)i);
+            system(str);
+
+            cout <<"Copying image."<<endl;
+
+            sprintf(str, "output/txt/%04d.txt", (int) i);
+            ofstream out(str);
+
+            out << "CONTOUR" << endl;
+
+            for (int j = 0; j < 3; j++) {
+                for (int k = 0; k < 4; k++) {
+                    out << P(j, k) << " ";
+                }
+                out << endl;
+            }
+        }
+    }
 
     return 0;
 }

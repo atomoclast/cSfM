@@ -19,6 +19,7 @@
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/nonlinear/DoglegOptimizer.h>
 #include <gtsam/nonlinear/Values.h>
+#include <fstream>
 
 
 #ifndef CSFM_CSFM_H
@@ -89,6 +90,7 @@ void findMatches(vector<cv::Mat> &images, SFM_Tracker &track)
     // https://docs.opencv.org/3.4.1/db/d70/tutorial_akaze_matching.html
 
     Ptr<AKAZE> feature = AKAZE::create();
+//    Ptr<SiftFeatureDetector> feature = SIFT::create(400);
     Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("BruteForce-Hamming");
     cout << "Finding Keypoints."<<endl;
     for(int img =0; img < images.size(); img++)
@@ -121,9 +123,11 @@ void findMatches(vector<cv::Mat> &images, SFM_Tracker &track)
 
             // match keypoints within range.
             matcher -> knnMatch(img_pose_m.descriptor, img_pose_n.descriptor, matches, 2);
+
             for (auto &match : matches)
             {
-                if(match[0].distance < 0.99*match[1].distance)
+                // TODO: Was 0.7. Too low?
+                if(match[0].distance < 0.8*match[1].distance)
                 {
                     source.push_back(img_pose_m.keypoints[match[0].queryIdx].pt);
                     destination.push_back(img_pose_n.keypoints[match[0].trainIdx].pt);
@@ -134,7 +138,8 @@ void findMatches(vector<cv::Mat> &images, SFM_Tracker &track)
             }
             cout << "find Fund Mat" << endl;
             // toss bad matches and keep good ones.
-            findFundamentalMat(source, destination, FM_RANSAC, 3.0, 0.99, mask);
+            // 1.0 was 3.0
+            findFundamentalMat(source, destination, FM_RANSAC, 1.0, 0.99, mask);
             cout << "Pushing Keypoints into vectors. Size of mask: " << mask.size() << endl;
 //            cout <<"mask[0]: " << mask[0]<<endl;
             for(size_t i=0; i < mask.size(); i++)
@@ -153,7 +158,7 @@ void findMatches(vector<cv::Mat> &images, SFM_Tracker &track)
 //            Mat img_matches;
 //            cout<< "about to match the images? " <<endl;
 //            drawMatches(img_pose_m.img, img_pose_m.keypoints, img_pose_n.img, img_pose_n.keypoints, matches, img_matches);
-//            resize(img_matches, img_matches, img_matches.size()/2);
+//            resize(img_matches, img_matches, img_matches.size()/4);
 //            imshow("img", img_matches);
 //            waitKey(0);
 
@@ -483,6 +488,56 @@ void bundleAdjustment(SFM_Tracker &track, gtsam::Cal3_S2& K, gtsam::Values& resu
 
 }
 
+void generateOutputs(SFM_Tracker& track, gtsam::Cal3_S2& K, gtsam::Values& result)
+{
+    using namespace gtsam;
+
+    Matrix3 K_refined = result.at<Cal3_S2>(Symbol('K', 0)).K();
+    cout << "Resultant Camera Matrix K: " << endl << K_refined << endl;
+
+    system("mkdir -p output/visualize");
+    system("mkdir -p output/txt");
+    system("mkdir -p output/models");
+
+    ofstream option("output/options.txt");
+
+    option << "timages -1 " << 0 << " " << (track.vImgPose.size() - 1) << endl;
+    option << "oimages 0" << endl;
+    option << "level 1" << endl;
+
+    option.close();
+
+    for (size_t i = 0; i < track.vImgPose.size(); i++) {
+        Eigen::Matrix<double, 3, 3> R;
+        Eigen::Matrix<double, 3, 1> t;
+        Eigen::Matrix<double, 3, 4> P;
+        char str[256];
+
+        R = result.at<Pose3>(Symbol('x', i)).rotation().matrix();
+        t = result.at<Pose3>(Symbol('x', i)).translation().vector();
+
+        P.block(0, 0, 3, 3) = R.transpose();
+        P.col(3) = -R.transpose() * t;
+        P = K_refined * P;
+
+//        sprintf(str, "cp -f %s/%s output/visualize/%04d.jpg", IMAGE_DIR.c_str(), IMAGES[i].c_str(), (int)i);
+        system(str);
+
+        sprintf(str, "output/txt/%04d.txt", (int) i);
+        ofstream out(str);
+
+        out << "CONTOUR" << endl;
+
+        for (int j = 0; j < 3; j++) {
+            for (int k = 0; k < 4; k++) {
+                out << P(j, k) << " ";
+            }
+            out << endl;
+        }
+    }
+    cout << endl;
+    cout << "You can now run pmvs2 on the results eg. PATH_TO_PMVS_BINARY/pmvs2 root/ options.txt" << endl;
+}
 
 void findKeypoints(cv::Mat& img1, vector<cv::KeyPoint>& keypoints_1,  cv::Mat& img2, vector<cv::KeyPoint>& keypoints_2,
                    vector<cv::DMatch>& valid_matches )
@@ -533,6 +588,5 @@ void findKeypoints(cv::Mat& img1, vector<cv::KeyPoint>& keypoints_1,  cv::Mat& i
 //    waitKey(0);
 
 }
-
 
 #endif //CSFM_CSFM_H
