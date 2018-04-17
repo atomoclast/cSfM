@@ -76,11 +76,11 @@ int main(int argc, char** argv ) {
     double f  = atof(argv[2]),
             cx = atof(argv[3]), cy = atof(argv[4]);
 
-    Mat K = Mat::eye(3, 3, CV_64F);
-    K.at<double>(0,0) = f;
-    K.at<double>(1,1) = f;
-    K.at<double>(0,2) = cx;
-    K.at<double>(1,2) = cy;
+    Mat cvK = Mat::eye(3, 3, CV_64F);
+    cvK.at<double>(0,0) = f;
+    cvK.at<double>(1,1) = f;
+    cvK.at<double>(0,2) = cx;
+    cvK.at<double>(1,2) = cy;
 
     cout <<"Opening Images..."<<endl;
 
@@ -99,9 +99,15 @@ int main(int argc, char** argv ) {
 //    waitKey(0);
 
     // Triangulate Points in space.
-    triangulateSFMPoints(tracker, K);
+    triangulateSFMPoints(tracker, cvK);
 
+//    double f = kMat.at<double>(0,0);
+//    double cx = kMat.at<double>(0,2);
+//    double cy = kMat.at<double>(1,2);
 
+    gtsam::Values resultant;
+    gtsam::Cal3_S2 K(f, f, 0, cx, cy); //Skew matrix
+    bundleAdjustment(tracker, K,resultant);
 
     return 0;
 }

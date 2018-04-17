@@ -3,12 +3,13 @@
 //
 
 #include <opencv2/core/core.hpp>
+#include <opencv/cv.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/xfeatures2d.hpp>
-#include <opencv2/calib3d/calib3d.hpp>
 
+#include <opencv2/calib3d/calib3d.hpp>
 #include <gtsam/geometry/Point2.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/slam/PriorFactor.h>
@@ -18,27 +19,27 @@
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/nonlinear/DoglegOptimizer.h>
 #include <gtsam/nonlinear/Values.h>
-#include <opencv/cv.hpp>
 
 
 #ifndef CSFM_CSFM_H
 #define CSFM_CSFM_H
 
-using namespace cv;
 using namespace std;
-using namespace cv::xfeatures2d;
+//using namespace cv;
+//using namespace cv::xfeatures2d;
 // Can't have this....build errors due to ambiguous naming of variables...
 //using namespace gtsam;
 
+const int MIN_FEATURE_MATCHES = 3;
 
 class ImagePose
 {
 public:
-    Mat img;
-    Mat descriptor;
-    vector<KeyPoint> keypoints;
-    Mat T; //pose tf matrix
-    Mat P; // projection matrix
+    cv::Mat img;
+    cv::Mat descriptor;
+    vector<cv::KeyPoint> keypoints;
+    cv::Mat T; //pose tf matrix
+    cv::Mat P; // projection matrix
     using num_keypoints = size_t;
     using num_landmark = size_t;
     using num_images = size_t;
@@ -66,10 +67,9 @@ public:
 class CommonPoint
 {
 public:
-    Point3f point;
+    cv::Point3f point;
     int num_found; // How many times has this particular point been seen between images.
 };
-
 
 class SFM_Tracker
 {
@@ -80,8 +80,10 @@ public:
 };
 
 
-void findMatches(vector<Mat> &images, SFM_Tracker &track)
+void findMatches(vector<cv::Mat> &images, SFM_Tracker &track)
 {
+    using namespace cv;
+    using namespace cv::xfeatures2d;
 
     // Go through and find strong features in each image.
     // https://docs.opencv.org/3.4.1/db/d70/tutorial_akaze_matching.html
@@ -160,8 +162,11 @@ void findMatches(vector<Mat> &images, SFM_Tracker &track)
 }
 
 
-void triangulateSFMPoints(SFM_Tracker &track, Mat K)
+void triangulateSFMPoints(SFM_Tracker &track, cv::Mat K)
 {
+    using namespace cv;
+    using namespace cv::xfeatures2d;
+
     Point2d pp(K.at<double>(0,2), K.at<double>(1,2)); //cx and cy
     cout << endl << "Initial Camera Matrix K:" << endl << K << endl << endl;
 
@@ -276,8 +281,7 @@ void triangulateSFMPoints(SFM_Tracker &track, Mat K)
                 }
             }
 
-            // ratio of distance for all possible point pairing
-            // probably an over kill! can probably just pick N random pairs
+
             for (size_t j=0; j < new_pts.size()-1; j++) {
                 for (size_t k=j+1; k< new_pts.size(); k++) {
                     double s = norm(existing_pts[j] - existing_pts[k]) / norm(new_pts[j] - new_pts[k]);
@@ -361,31 +365,130 @@ void triangulateSFMPoints(SFM_Tracker &track, Mat K)
 
 }
 
-//void bundleAdjustment(SFM_Tracker &track, Mat K, gtsam::Values& result)
-//{
-//    using namespace gtsam;
-//    cout << "Running Bundle Adjustment now." << endl;
-//    double f = K.at<double>(0,0);
-//    double cx = K.at<double>(0,2);
-//    double cy = K.at<double>(1,2);
-//
-//    // Define the camera observation noise model.
-//    Cal3_S2::shared_ptr Kay(f, f, 0, cx, cy); //Skew matrix
-//
-//    // Create the camera observation noise model.
-////    noiseModel::Isotropic:shared_ptr measurementNoise = noiseModel::Isotropic::Sigma(2, 1.0); // one pixel in u and v
-//    noiseModel::Isotropic::shared_ptr measurementNoise = noiseModel::Isotropic::Sigma(2, 2.0);
-//
-//    // Create a factor graph
-//    NonlinearFactorGraph graph;
-//    Values initial;
-//
-//}
-
-
-void findKeypoints(Mat& img1, vector<KeyPoint>& keypoints_1,  Mat& img2, vector<KeyPoint>& keypoints_2,
-                   vector<DMatch>& valid_matches )
+void bundleAdjustment(SFM_Tracker &track, gtsam::Cal3_S2& K, gtsam::Values& result)
 {
+    using namespace gtsam;
+    cout << "Running Bundle Adjustment now." << endl;
+//    double f = kMat.at<double>(0,0);
+//    double cx = kMat.at<double>(0,2);
+//    double cy = kMat.at<double>(1,2);
+
+    // Define the camera observation noise model.
+//    Cal3_S2 K(f, f, 0, cx, cy); //Skew matrix
+
+    // Create the camera observation noise model.
+//    noiseModel::Isotropic:shared_ptr measurementNoise = noiseModel::Isotropic::Sigma(2, 1.0); // one pixel in u and v
+    noiseModel::Isotropic::shared_ptr measurementNoise = noiseModel::Isotropic::Sigma(2, 2.0);
+
+    // Create a factor graph
+    gtsam::NonlinearFactorGraph graph;
+    gtsam::Values initial;
+
+    // Iterate through poses from OpenCV datatypes, then insert them into GT SAM types.
+    for(size_t i=0; i < track.vImgPose.size(); i++)
+    {
+        auto &imgPose = track.vImgPose[i];
+
+        //Rotation matrix.
+        Rot3 R(imgPose.T.at<double>(0,0),
+               imgPose.T.at<double>(0,1),
+               imgPose.T.at<double>(0,2),
+
+               imgPose.T.at<double>(1,0),
+               imgPose.T.at<double>(1,1),
+               imgPose.T.at<double>(1,2),
+
+               imgPose.T.at<double>(2,0),
+               imgPose.T.at<double>(2,1),
+               imgPose.T.at<double>(2,2)
+        );
+
+        // translation matrix
+        Point3 t;
+
+        t(0) = imgPose.T.at<double>(0,3);
+        t(0) = imgPose.T.at<double>(1,3);
+        t(0) = imgPose.T.at<double>(2,3);
+
+        Pose3 pose(R, t);
+
+        // First image special case to make it really noisy and lower the confidence on it.
+        if(i == 0)
+        {
+            gtsam::noiseModel::Diagonal::shared_ptr poseNoise = noiseModel::Diagonal::Sigmas((gtsam::Vector(6) << gtsam::Vector3::Constant(0.1), Vector3::Constant(0.1)).finished());
+            graph.emplace_shared<PriorFactor<Pose3>>(Symbol('x', 0), pose, poseNoise);
+        }
+
+        initial.insert(Symbol('x', i), pose);
+
+        // iterate through common points between images:
+
+        for (size_t k=0; k<imgPose.keypoints.size(); k++)
+        {
+            if(imgPose.keypoint_3d_exist(k))
+            {
+                size_t  commonPointID = imgPose.keypoint_3d(k);
+
+                if (track.vGlobalPoint[commonPointID].num_found >= MIN_FEATURE_MATCHES)
+                {
+                    Point2 point;
+
+                    point(0) = imgPose.keypoints[k].pt.x;
+                    point(1) = imgPose.keypoints[k].pt.y;
+
+                    graph.emplace_shared<GeneralSFMFactor2<Cal3_S2>>(point, measurementNoise, Symbol('x', i), Symbol('l', commonPointID), Symbol('K', 0));
+                }
+            }
+        }
+    }
+
+    initial.insert(Symbol('K', 0), K);
+
+    noiseModel::Diagonal::shared_ptr calNoise = noiseModel::Diagonal::Sigmas((Vector(5) << 100, 100, 0.01, 100, 100).finished());
+    graph.emplace_shared<PriorFactor<Cal3_S2>>(Symbol('K', 0), K, calNoise);
+
+
+    bool initPrior = false;
+
+    for(size_t i = 0; i < track.vGlobalPoint.size(); i++)
+    {
+        if(track.vGlobalPoint[i].num_found >= MIN_FEATURE_MATCHES)
+        {
+            cv::Point3f &point = track.vGlobalPoint[i].point;
+
+            initial.insert<Point3>(Symbol('l', i), Point3(point.x, point.y, point.z));
+
+            if(!initPrior)
+            {
+                initPrior=true;
+
+                noiseModel::Isotropic::shared_ptr point_noise = noiseModel::Isotropic::Sigma(3, 0.1);
+                Point3 p;
+                p(0) = track.vGlobalPoint[i].point.x;
+                p(1) = track.vGlobalPoint[i].point.y;
+                p(2) = track.vGlobalPoint[i].point.z;
+                //(track.vGlobalPoint[i].point.x, track.vGlobalPoint[i].point.y, track.vGlobalPoint[i].point.z);
+                graph.emplace_shared<PriorFactor<Point3>>(Symbol('l', i), p, point_noise);
+
+
+            }
+        }
+    }
+
+    result = LevenbergMarquardtOptimizer(graph, initial).optimize();
+
+    cout<<"\n%%%%%%%%%%%%%%%%%%%%%"<<endl;
+    cout<<"Initial Graph Error = " <<graph.error(initial) <<endl;
+    cout<<"Final Graph Error = " << graph.error(result) <<endl;
+
+}
+
+
+void findKeypoints(cv::Mat& img1, vector<cv::KeyPoint>& keypoints_1,  cv::Mat& img2, vector<cv::KeyPoint>& keypoints_2,
+                   vector<cv::DMatch>& valid_matches )
+{
+    using namespace cv;
+    using namespace cv::xfeatures2d;
 
     int minHessian = 600;
     Ptr<SURF> detector = SURF::create();
@@ -431,11 +534,5 @@ void findKeypoints(Mat& img1, vector<KeyPoint>& keypoints_1,  Mat& img2, vector<
 
 }
 
-
-
-//void reconstruct_image_pair(vector<Mat>& points2d, vector<Mat>& Rs_est, vector<Mat>& ts_est, Matx33d& K, vector<Mat>& points3d_estimated)
-//{
-//    cout << "Reconstructing...." << endl;
-//}
 
 #endif //CSFM_CSFM_H
