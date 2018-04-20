@@ -155,12 +155,12 @@ void findMatches(vector<cv::Mat> &images, SFM_Tracker &track)
             }
 
             // Match images and visualize it:
-//            Mat img_matches;
-//            cout<< "about to match the images? " <<endl;
-//            drawMatches(img_pose_m.img, img_pose_m.keypoints, img_pose_n.img, img_pose_n.keypoints, matches, img_matches);
-//            resize(img_matches, img_matches, img_matches.size()/4);
-//            imshow("img", img_matches);
-//            waitKey(0);
+            Mat img_matches;
+            cout<< "about to match the images? " <<endl;
+            drawMatches(img_pose_m.img, img_pose_m.keypoints, img_pose_n.img, img_pose_n.keypoints, matches, img_matches);
+            resize(img_matches, img_matches, img_matches.size());
+            imshow("img", img_matches);
+            waitKey(0);
 
         }
     }

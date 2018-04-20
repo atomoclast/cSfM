@@ -163,6 +163,11 @@ int main(int argc, char** argv ) {
             }
         }
     }
+    cout <<endl<< "Now running PMVS to generate pointcloud." << endl;
+    system("./pmvs2 output/ options.txt");
+
+    cout <<endl<< "Operation complete. Navigate to output/options/ "
+                  "and open 'options.txt.ply' to view your model."<<endl;
 
     return 0;
 }
