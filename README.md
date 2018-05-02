@@ -38,8 +38,7 @@ However, if you are using images from a smart phone/uncalibrated camera, you can
 
 To calculate the focal length of your image, I have written a simple helper Python script. The way you use that is as follows: 
 
-```
-python calculate_focal_length.py [pxW] [f_mm] [fov]```
+`python calculate_focal_length.py [pxW] [f_mm] [fov]`
 
 where: 
 
