@@ -89,8 +89,7 @@ Integrate this pipeline into ROS and use it with Visual Odometry.
 4. http://nghiaho.com/?p=2379
 5. https://www.di.ens.fr/pmvs/pmvs-1/index.html
 6. http://www.cs.cornell.edu/~snavely/bundler/
-7. https://robotics.stackexchange.com/questions/14456/
-determine-the-relative-camera-pose-given-two-rgb-camera-frames-in-opencv-python
+7. https://robotics.stackexchange.com/questions/14456/determine-the-relative-camera-pose-given-two-rgb-camera-frames-in-opencv-python
 8. https://www.cc.gatech.edu/grads/j/jdong37/files/gtsam-tutorial.pdf
 
 
