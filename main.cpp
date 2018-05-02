@@ -106,6 +106,10 @@ int main(int argc, char** argv ) {
 //    double cy = kMat.at<double>(1,2);
 
     gtsam::Values result;
+
+  //     // Define the camera calibration parameters
+  // Cal3_S2::shared_ptr K(new Cal3_S2(50.0, 50.0, 0.0, 50.0, 50.0));
+
     gtsam::Cal3_S2 K(f, f, 0, cx, cy); //Skew matrix
     bundleAdjustment(tracker, K,result);
 

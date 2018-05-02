@@ -154,13 +154,13 @@ void findMatches(vector<cv::Mat> &images, SFM_Tracker &track)
                 }
             }
 
-            // Match images and visualize it:
-            Mat img_matches;
-            cout<< "about to match the images? " <<endl;
-            drawMatches(img_pose_m.img, img_pose_m.keypoints, img_pose_n.img, img_pose_n.keypoints, matches, img_matches);
-            resize(img_matches, img_matches, img_matches.size());
-            imshow("img", img_matches);
-            waitKey(0);
+//             Match images and visualize it:
+            // Mat img_matches;
+            // cout<< "about to match the images? " <<endl;
+            // drawMatches(img_pose_m.img, img_pose_m.keypoints, img_pose_n.img, img_pose_n.keypoints, matches, img_matches);
+            // resize(img_matches, img_matches, img_matches.size());
+            // imshow("img", img_matches);
+            // waitKey(0);
 
         }
     }
@@ -227,8 +227,48 @@ void triangulateSFMPoints(SFM_Tracker &track, cv::Mat K)
         Mat E = findEssentialMat(destination, source, K.at<double>(0,0), pp, RANSAC, 0.999, 1.0, status);
         Mat local_R, local_t;
 
+        /*
+            Mat findEssentialMat(InputArray points1, InputArray points2, double focal=1.0, Point2d pp=Point2d(0, 0), int method=RANSAC, double prob=0.999, double threshold=1.0, OutputArray mask=noArray() )¶
+            Parameters: 
+            points1 – Array of N (N >= 5) 2D points from the first image. The point coordinates should be floating-point (single or double precision).
+            points2 – Array of the second image points of the same size and format as points1 .
+            focal – focal length of the camera. Note that this function assumes that points1 and points2 are feature points from cameras with same focal length and principle point.
+            pp – principle point of the camera.
+            method –
+            Method for computing a fundamental matrix.
+
+            RANSAC for the RANSAC algorithm.
+            MEDS for the LMedS algorithm.
+            threshold – Parameter used for RANSAC. It is the maximum distance from a point to an epipolar line in pixels, beyond which the point is considered an outlier and is not used for computing the final fundamental matrix. It can be set to something like 1-3, depending on the accuracy of the point localization, image resolution, and the image noise.
+            prob – Parameter used for the RANSAC or LMedS methods only. It specifies a desirable level of confidence (probability) that the estimated matrix is correct.
+            mask – Output array of N elements, every element of which is set to 0 for outliers and to 1 for the other points. The array is computed only in the RANSAC and LMedS methods.            
+        */
+
         cout<< "Recovering Pose." << endl;
         // https://docs.opencv.org/3.0-beta/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
+        
+        /*
+
+        int point_count = 100;
+        vector<Point2f> points1(point_count);
+        vector<Point2f> points2(point_count);
+
+        for( int i = 0; i < point_count; i++ )
+        {
+            points1[i] = ...;
+            points2[i] = ...;
+        }
+
+        double focal = 1.0;
+        cv::Point2d pp(0.0, 0.0);
+        Mat E, R, t, mask;
+
+        E = findEssentialMat(points1, points2, focal, pp, RANSAC, 0.999, 1.0, mask);
+        recoverPose(E, points1, points2, R, t, focal, pp, mask);
+
+
+        */
+
         recoverPose(E, destination, source, local_R, local_t, K.at<double>(0,0), pp, status);
 
         // local tansform
@@ -250,6 +290,21 @@ void triangulateSFMPoints(SFM_Tracker &track, cv::Mat K)
         P = K*P;
 
         cur.P = P;
+
+
+        /* 
+
+            void triangulatePoints(InputArray projMatr1, InputArray projMatr2, InputArray projPoints1, InputArray projPoints2, OutputArray points4D)
+
+            Parameters: 
+            projMatr1 – 3x4 projection matrix of the first camera.
+            projMatr2 – 3x4 projection matrix of the second camera.
+            projPoints1 – 2xN array of feature points in the first image. In case of c++ version it can be also a vector of feature points or two-channel matrix of size 1xN or Nx1.
+            projPoints2 – 2xN array of corresponding points in the second image. In case of c++ version it can be also a vector of feature points or two-channel matrix of size 1xN or Nx1.
+            points4D – 4xN array of reconstructed points in homogeneous coordinates.
+
+        */
+
 
         Mat points4D;
         triangulatePoints(prev.P, cur.P, source, destination, points4D);
@@ -417,6 +472,11 @@ void bundleAdjustment(SFM_Tracker &track, gtsam::Cal3_S2& K, gtsam::Values& resu
 
         Pose3 pose(R, t);
 
+  //       // Add a prior on pose x1. This indirectly specifies where the origin is.
+      // noiseModel::Diagonal::shared_ptr poseNoise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.3), Vector3::Constant(0.1)).finished()); // 30cm std on x,y,z 0.1 rad on roll,pitch,yaw
+      // graph.emplace_shared<PriorFactor<Pose3> >(Symbol('x', 0), poses[0], poseNoise); // add directly to graph
+
+
         // First image special case to make it really noisy and lower the confidence on it.
         if(i == 0)
         {
@@ -427,6 +487,15 @@ void bundleAdjustment(SFM_Tracker &track, gtsam::Cal3_S2& K, gtsam::Values& resu
         initial.insert(Symbol('x', i), pose);
 
         // iterate through common points between images:
+
+  //         // Simulated measurements from each camera pose, adding them to the factor graph
+  // for (size_t i = 0; i < poses.size(); ++i) {
+  //   SimpleCamera camera(poses[i], *K);
+  //   for (size_t j = 0; j < points.size(); ++j) {
+  //     Point2 measurement = camera.project(points[j]);
+  //     graph.emplace_shared<GenericProjectionFactor<Pose3, Point3, Cal3_S2> >(measurement, measurementNoise, Symbol('x', i), Symbol('l', j), K);
+  //   }
+  // }
 
         for (size_t k=0; k<imgPose.keypoints.size(); k++)
         {
@@ -467,6 +536,13 @@ void bundleAdjustment(SFM_Tracker &track, gtsam::Cal3_S2& K, gtsam::Values& resu
             {
                 initPrior=true;
 
+  //               // Because the structure-from-motion problem has a scale ambiguity, the problem is still under-constrained
+  // // Here we add a prior on the position of the first landmark. This fixes the scale by indicating the distance
+  // // between the first camera and the first landmark. All other landmark positions are interpreted using this scale.
+      // noiseModel::Isotropic::shared_ptr pointNoise = noiseModel::Isotropic::Sigma(3, 0.1);
+      // graph.emplace_shared<PriorFactor<Point3> >(Symbol('l', 0), points[0], pointNoise); // add directly to graph
+      // graph.print("Factor Graph:\n");
+
                 noiseModel::Isotropic::shared_ptr point_noise = noiseModel::Isotropic::Sigma(3, 0.1);
                 Point3 p;
                 p(0) = track.vGlobalPoint[i].point.x;
@@ -481,6 +557,9 @@ void bundleAdjustment(SFM_Tracker &track, gtsam::Cal3_S2& K, gtsam::Values& resu
     }
 
     result = LevenbergMarquardtOptimizer(graph, initial).optimize();
+
+  //   /* Optimize the graph and print results */
+  // Values result = DoglegOptimizer(graph, initialEstimate).optimize();
 
     cout<<"\n%%%%%%%%%%%%%%%%%%%%%"<<endl;
     cout<<"Initial Graph Error = " <<graph.error(initial) <<endl;
